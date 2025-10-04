@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MinimalApi.Dominio.Entidades;
 
 namespace MinimalApi.Infraestutura.Db;
 
@@ -8,8 +9,7 @@ public class DbContexto : DbContext
     {
     }
 
-    // Exemplo de DbSet - substitua por suas entidades reais
-    public DbSet<object> Exemplo { get; set; } = null!;
+    public DbSet<Administrador> Administradores { get; set; } = null!;
     
     
 }
