@@ -10,6 +10,4 @@ public class DbContexto : DbContext
     }
 
     public DbSet<Administrador> Administradores { get; set; } = null!;
-    
-    
 }
