@@ -90,7 +90,10 @@ if(validacao.Erros.Count > 0)
 
     _veiculoServico.Incluir(veiculo);
     return Results.Created($"/veiculos/{veiculo.Id}", veiculo);
-});
+}).WithTags("Veículos")
+    .WithName("PostVeiculos")
+    .WithSummary("Crie um novo veículo.")
+    .WithDescription("Retorna uma lista de veículos. O parâmetro 'pagina' é opcional e indica o número da página para paginação (padrão: 1).");
 
 /// <summary>
 /// Obtém a lista de veículos paginada.
