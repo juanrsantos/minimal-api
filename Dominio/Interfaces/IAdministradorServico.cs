@@ -1,4 +1,6 @@
 namespace MinimalApi.Dominio.Interfaces;
+
+using MinimalApi.Dominio.Entidades;
 using MinimalApi.DTOs;
 
 
@@ -8,4 +10,8 @@ public interface IAdministradorServico
     // Exemplo:
     // Administrador Autenticar(string email, string senha);
     bool? Login(LoginDTO loginDTO);
+
+    Administrador Incluir(Administrador admin);
+
+    List<Administrador> Todos(int? pagina = 1);
 }       

@@ -1,5 +1,6 @@
 namespace MinimalApi.Dominio.Servicos;
 
+using System.Collections.Generic;
 using MinimalApi.Dominio.Entidades;
 using MinimalApi.Dominio.Interfaces;
 using MinimalApi.DTOs;
@@ -13,6 +14,15 @@ public class AdministradorServico : IAdministradorServico
     {
         _db = contexto;
     }
+
+    public Administrador Incluir(Administrador admin)
+    {
+      
+        _db.Administradores.Add(admin);
+        _db.SaveChanges();
+        return admin;
+    }
+
     public bool? Login(LoginDTO loginDTO)
     {
         var admin = _db.Administradores
@@ -21,5 +31,14 @@ public class AdministradorServico : IAdministradorServico
         return admin != null;
     }
 
-
+    public List<Administrador> Todos(int? pagina = 1)
+    {
+        var query = _db.Administradores.AsQueryable();
+        int pageSize = 10;
+        if (pagina != null && pagina > 0)
+        {
+            query = query.Skip(((int)pagina - 1) * pageSize).Take(pageSize);
+        }   
+        return query.ToList();
+    }
 }
