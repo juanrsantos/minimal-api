@@ -31,6 +31,13 @@ public class AdministradorServico : IAdministradorServico
         return admin != null;
     }
 
+    public Administrador? Autenticar(string email, string senha)
+    {
+        var admin = _db.Administradores
+            .FirstOrDefault(a => a.Email == email && a.Senha == senha);
+        return admin;
+    }
+
     public List<Administrador> Todos(int? pagina = 1)
     {
         var query = _db.Administradores.AsQueryable();

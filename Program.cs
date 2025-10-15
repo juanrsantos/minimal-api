@@ -1,4 +1,5 @@
 using Dominio.ModelViews;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MinimalApi.Dominio.DTOs;
@@ -22,10 +23,62 @@ builder.Services.AddDbContext<MinimalApi.Infraestutura.Db.DbContexto>(options =>
 
 builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
 builder.Services.AddScoped<IVeiculosServico, VeiculoServico>();
+// Token service
+builder.Services.AddSingleton<MinimalApi.Infraestutura.Token.ITokenService, MinimalApi.Infraestutura.Token.TokenService>();
+
+// Configurar autenticação JWT
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var key = jwtSection["Key"] ?? throw new InvalidOperationException("Jwt:Key não encontrado no appsettings");
+var issuer = jwtSection["Issuer"];
+var audience = jwtSection["Audience"];
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+})
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = issuer,
+            ValidAudience = audience,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key))
+        };
+    });
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+// Authorization
+builder.Services.AddAuthorization();
+
+// Configurar Swagger para usar Bearer token
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "Use: 'Bearer {token}'",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            new string[] { }
+        }
+    });
+});
 #endregion
 
 #region app
@@ -37,6 +90,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Autenticação/Autorização
+app.UseAuthentication();
+app.UseAuthorization();
 #endregion
 
 // Exemplo simplificado (no Program.cs, após app.Build())
@@ -173,13 +230,16 @@ app.MapDelete("/veiculos/{id}", (int id, IVeiculosServico _veiculoServico) =>
 
 #region login
 
-app.MapPost("/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico _adminServico) =>
+app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico _adminServico, MinimalApi.Infraestutura.Token.ITokenService _tokenService) =>
 {
-    if (_adminServico.Login(loginDTO) == true)
-        return Results.Ok("logado com sucesso");
-    else
+    var admin = _adminServico.Autenticar(loginDTO.Email, loginDTO.Senha);
+    if (admin == null)
         return Results.Unauthorized();
-});
+
+    var token = _tokenService.GerarToken(admin);
+    return Results.Ok(new { token });
+})
+.WithTags("Administradores").WithName("LoginAdministradores");
 #endregion
 
 #region 
@@ -201,10 +261,14 @@ app.MapGet("/administradores", ([FromQuery(Name = "pagina")] int? pagina, IAdmin
         });
     }
     return Results.Ok(admins);
-}).WithTags("Administradores")
+}).RequireAuthorization()
+.RequireAuthorization(new AuthorizeAttribute{ Roles = "Editor" })
     .WithName("GetAdministradores")
     .WithSummary("Obtém a lista de administradores paginada.")
     .WithDescription("Retorna uma lista de administradores. O parâmetro 'pagina' é opcional e indica o número da página para paginação (padrão: 1).");  
+    
+    
+    
     
 app.MapGet("/administradores/{id}", (int id, IAdministradorServico _adminServico) =>
 {
@@ -213,10 +277,12 @@ app.MapGet("/administradores/{id}", (int id, IAdministradorServico _adminServico
         return Results.NotFound("Administrador não encontrado");
 
     return Results.Ok(admin);
-}).WithTags("Administradores")
+}).RequireAuthorization().WithTags("Administradores")
     .WithName("GetAdministradorById")
     .WithSummary("Obtém um administrador pelo ID.")
     .WithDescription("Retorna os dados de um administrador específico com base no ID fornecido.");
+
+
 
 app.MapPost("administradores", ([FromBody] AdministradorDTO adminDTO, IAdministradorServico _adminServico) =>
 {
